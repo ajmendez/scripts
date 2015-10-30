@@ -4,7 +4,7 @@
 #
 # This program is free software; you may redistribute it and/or modify it
 # under the same terms as Perl itself.
-#    trancearoundtheworld mp3 archive sync utility
+#    utility to organize media collections
 #    Copyright (C) 2012 Todd Brandt <tebrandt@frontier.com>
 #
 #    This program is free software; you can redistribute it and/or modify
@@ -22,16 +22,53 @@
 #    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 #
 
-if [ $USER != "root" ]; then
-	echo "Need root access"
-	exit
-fi
+URL1="http://192.168.1.4:8090/?action=stream"
+URL2="http://192.168.1.4:8091/?action=stream"
+URLS="$URL1 $URL2"
 
-while [ 1 ]; do
-	PIDS=`ps -C dd --no-headers | awk '{print $1}'`
-	for PID in $PIDS
+printHelp() {
+	echo ""
+	echo "Office - view the office webcams"
+	echo "USAGE: office <stop>"
+	echo ""
+	exit
+}
+
+isRunning() {
+	PID=`ps -C vlc --no-headers -o pid,args | grep $1 | head -1 | awk '{print $1}'`
+	return $PID
+}
+
+on_start() {
+	for u in $URLS
 	do
-		kill -s USR1 $PID
+		isRunning $u
+		if [ $? -eq 0 ]; then
+			vlc --no-audio $u > /dev/null 2>&1 &
+			PID=$!
+			echo "Starting $PID : $u"
+		fi
 	done
-	sleep 2
-done
+}
+
+on_stop() {
+	for u in $URLS
+	do
+		isRunning $u
+		PID=$?
+		if [ $PID -ne 0 ]; then
+			echo "Killing $PID"
+			kill -9 $PID
+		fi
+	done
+}
+
+if [ $# -gt 1 ]; then
+	printHelp
+elif [ $# -eq 0 ]; then
+	on_start
+elif [ $# -eq 1 -a $1 = "stop" ]; then
+	on_stop
+else
+	printHelp
+fi
